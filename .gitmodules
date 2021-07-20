@@ -1,0 +1,4 @@
+[submodule "ini-parser"]
+	path = ini-parser
+	url = https://github.com/r47t/ini-parser.git
+	shallow = true
