@@ -24,6 +24,8 @@ const char *g_pszProcessName = NULL;
 const wchar_t *g_pwcProcessName = NULL;
 
 bool g_bAutoSuspend = false;
+bool g_bHoldMode = false;
+DWORD g_GetProcessDelay = 50;
 DWORD g_ToggleKey = 0x2D;
 
 //-----------------------------------------------------------------------------
@@ -86,6 +88,14 @@ void SuspendProcess(HANDLE hProcess)
 	NtSuspendProcess(hProcess);
 }
 
+inline void SuspendProcess_Wrapper(HANDLE hProcess, bool &bSuspended)
+{
+	SuspendProcess(g_hProcess);
+	bSuspended = true;
+
+	printf("Process is suspended\n");
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: resume process
 //-----------------------------------------------------------------------------
@@ -104,6 +114,14 @@ void ResumeProcess(HANDLE hProcess)
 	NtResumeProcess(hProcess);
 }
 
+inline void ResumeProcess_Wrapper(HANDLE g_hProcess, bool &bSuspended)
+{
+	ResumeProcess(g_hProcess);
+	bSuspended = false;
+
+	printf("Process is resumed\n");
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: parse configuration file
 //-----------------------------------------------------------------------------
@@ -111,6 +129,7 @@ void ResumeProcess(HANDLE hProcess)
 bool ParseFile()
 {
 	printf("Trying to find the config file...\n");
+
 
 	ini_data data;
 	ini_datatype datatype;
@@ -125,12 +144,19 @@ bool ParseFile()
 		return false;
 	}
 
+
 	INI_FIELDTYPE_CSTRING(datatype);
 
 	if (ini_read_data(&data, "SETTINGS", "ProcessName", &datatype))
 	{
 		g_pszProcessName = datatype.m_pszString;
 	}
+	else
+	{
+		printf("Missing parameter ProcessName in section SETTINGS");
+		return false;
+	}
+
 
 	INI_FIELDTYPE_BOOL(datatype);
 
@@ -138,6 +164,38 @@ bool ParseFile()
 	{
 		g_bAutoSuspend = datatype.m_bool;
 	}
+	else
+	{
+		printf("Missing parameter AutoSuspend in section SETTINGS");
+		return false;
+	}
+	
+
+	INI_FIELDTYPE_BOOL(datatype);
+
+	if (ini_read_data(&data, "SETTINGS", "HoldMode", &datatype))
+	{
+		g_bHoldMode = datatype.m_bool;
+	}
+	else
+	{
+		printf("Missing parameter HoldMode in section SETTINGS");
+		return false;
+	}
+
+
+	INI_FIELDTYPE_UINT32(datatype, 10);
+
+	if (ini_read_data(&data, "SETTINGS", "GetProcessDelay", &datatype))
+	{
+		g_GetProcessDelay = datatype.m_uint32;
+	}
+	else
+	{
+		printf("Missing parameter GetProcessDelay in section SETTINGS");
+		return false;
+	}
+	
 
 	INI_FIELDTYPE_UINT32(datatype, 16);
 
@@ -145,6 +203,12 @@ bool ParseFile()
 	{
 		g_ToggleKey = datatype.m_uint32;
 	}
+	else
+	{
+		printf("Missing parameter ToggleKey in section CONTROLS");
+		return false;
+	}
+
 
 	printf("Parsed the config file\n");
 
@@ -158,6 +222,7 @@ bool ParseFile()
 
 int main()
 {
+	bool bSuspendUntilPressKey = false;
 	bool bSuspended = false;
 	bool bKeyPressed = false;
 
@@ -165,7 +230,7 @@ int main()
 	if (!ParseFile())
 	{
 		printf("Failed to parse the config file\n");
-		Sleep(3000);
+		Sleep(5000);
 
 		return 1;
 	}
@@ -185,7 +250,7 @@ int main()
 		if (GetProcessID(g_pwcProcessName, g_dwProcessID))
 			GetProcessHandle(g_hProcess, g_dwProcessID, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SUSPEND_RESUME);
 
-		Sleep(50);
+		Sleep(g_GetProcessDelay);
 	}
 
 
@@ -193,7 +258,12 @@ int main()
 
 
 	if (g_bAutoSuspend)
-		goto FORCE_SUSPEND;
+	{
+		if (g_bHoldMode)
+			bSuspendUntilPressKey = true;
+		else
+			goto FORCE_SUSPEND;
+	}
 
 
 	while (true)
@@ -207,24 +277,29 @@ int main()
 			break;
 		}
 
-		if (GetAsyncKeyState(g_ToggleKey))
+		if (GetAsyncKeyState(g_ToggleKey) || bSuspendUntilPressKey)
 		{
-			if (!bKeyPressed)
+			if (g_bHoldMode)
+			{
+				if (!bSuspended)
+				{
+					SuspendProcess_Wrapper(g_hProcess, bSuspended);
+				}
+				else if (bSuspendUntilPressKey && GetAsyncKeyState(g_ToggleKey))
+				{
+					bSuspendUntilPressKey = false;
+				}
+			}
+			else if (!bKeyPressed)
 			{
 				if (bSuspended)
 				{
-					ResumeProcess(g_hProcess);
-					bSuspended = false;
-
-					printf("Process is resumed\n");
+					ResumeProcess_Wrapper(g_hProcess, bSuspended);
 				}
 				else
 				{
 				FORCE_SUSPEND:
-					SuspendProcess(g_hProcess);
-					bSuspended = true;
-
-					printf("Process is suspended\n");
+					SuspendProcess_Wrapper(g_hProcess, bSuspended);
 				}
 			}
 
@@ -232,6 +307,9 @@ int main()
 		}
 		else
 		{
+			if (g_bHoldMode && bSuspended)
+				ResumeProcess_Wrapper(g_hProcess, bSuspended);
+
 			bKeyPressed = false;
 		}
 
