@@ -147,7 +147,7 @@ bool ParseFile()
 
 	INI_FIELDTYPE_CSTRING(datatype);
 
-	if (ini_read_data(&data, "SETTINGS", "ProcessName", &datatype))
+	if (ini_read_data(&data, "SETTINGS", "ProcessName", &datatype, -1))
 	{
 		g_pszProcessName = datatype.m_pszString;
 	}
@@ -160,7 +160,7 @@ bool ParseFile()
 
 	INI_FIELDTYPE_BOOL(datatype);
 
-	if (ini_read_data(&data, "SETTINGS", "AutoSuspend", &datatype))
+	if (ini_read_data(&data, "SETTINGS", "AutoSuspend", &datatype, -1))
 	{
 		g_bAutoSuspend = datatype.m_bool;
 	}
@@ -173,7 +173,7 @@ bool ParseFile()
 
 	INI_FIELDTYPE_BOOL(datatype);
 
-	if (ini_read_data(&data, "SETTINGS", "HoldMode", &datatype))
+	if (ini_read_data(&data, "SETTINGS", "HoldMode", &datatype, -1))
 	{
 		g_bHoldMode = datatype.m_bool;
 	}
@@ -186,7 +186,7 @@ bool ParseFile()
 
 	INI_FIELDTYPE_UINT32(datatype, 10);
 
-	if (ini_read_data(&data, "SETTINGS", "GetProcessDelay", &datatype))
+	if (ini_read_data(&data, "SETTINGS", "GetProcessDelay", &datatype, -1))
 	{
 		g_GetProcessDelay = datatype.m_uint32;
 	}
@@ -199,7 +199,7 @@ bool ParseFile()
 
 	INI_FIELDTYPE_UINT32(datatype, 16);
 
-	if (ini_read_data(&data, "CONTROLS", "ToggleKey", &datatype))
+	if (ini_read_data(&data, "CONTROLS", "ToggleKey", &datatype, -1))
 	{
 		g_ToggleKey = datatype.m_uint32;
 	}
